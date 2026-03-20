@@ -1,0 +1,17 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0     # ASGI server that runs FastAPI
+
+# Database
+sqlalchemy==2.0.30            # ORM — translates Python classes to SQL
+psycopg2-binary==2.9.9        # PostgreSQL driver (the "binary" variant needs no C compiler)
+alembic==1.13.1               # Database migration tool (for schema changes later)
+
+# Auth
+python-jose[cryptography]==3.3.0   # JWT encoding/decoding
+bcrypt==4.1.3                      # Password hashing (direct, no passlib)
+
+# Config / validation
+pydantic==2.7.1
+pydantic-settings==2.2.1      # Reads .env files into Settings class
+pydantic[email]               # Email validation for EmailStr
