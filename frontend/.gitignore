@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+#Media file
+media/
+
+#python cache
+__pycache__/
+*.pyc 
