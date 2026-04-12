@@ -180,6 +180,10 @@ def seed_users():
         upsert_user("Dev Patel",        "dev@candidate.io",     "test123", "candidate"),
         upsert_user("Shreya Joshi",     "shreya@candidate.io",  "test123", "candidate"),
     ]
+    print("\n── Admin User ───────────────────────────")
+    admin = [
+        upsert_user("Admin",        "admin@smarthire.io",   "admin123", "admin")
+    ]
     db.commit()
     return hrs, candidates
 
