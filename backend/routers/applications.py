@@ -15,7 +15,8 @@ from db.session import get_db
 from db.models import Application, Job, InterviewAnswer, User
 from core.deps import get_current_user, require_hr, require_candidate
 from schemas.schemas import (
-    ApplyRequest, SubmitInterviewRequest, ApplicationOut
+    ApplyRequest, SubmitInterviewRequest, ApplicationOut,
+    InterviewDetailOut, AnswerOut, FeedbackItem,
 )
 
 router = APIRouter()
@@ -159,3 +160,115 @@ def submit_interview(
     db.commit()
     db.refresh(app)
     return _enrich_app(app)
+
+
+@router.get("/{app_id}/detail", response_model=InterviewDetailOut)
+def interview_detail(
+    app_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return full interview details for a completed application.
+    Accessible by the candidate who took the interview OR the HR who owns the job.
+    """
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Access control: candidate can see their own, HR can see applicants for their jobs
+    is_candidate_owner = (
+        current_user.role == "candidate" and app.candidate_id == current_user.id
+    )
+    is_hr_owner = (
+        current_user.role == "hr" and app.job and app.job.hr_id == current_user.id
+    )
+    if not (is_candidate_owner or is_hr_owner):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Answers (sorted by question index)
+    answers_out = [
+        AnswerOut(
+            question_text=a.question_text,
+            answer_text=a.answer_text,
+            question_index=a.question_index,
+        )
+        for a in sorted(app.answers, key=lambda x: x.question_index)
+    ]
+
+    # Rule-based feedback (fallback shown when AI feedback is unavailable)
+    def _score_label(s: float) -> str:
+        if s >= 75:
+            return "Excellent"
+        if s >= 50:
+            return "Good"
+        return "Needs Work"
+
+    def _score_tip(category: str, score: float) -> str:
+        tips = {
+            "Relevance": {
+                "high": "Keep structuring your answers with the STAR method — it's clearly working well.",
+                "mid":  "Try to be more direct: address the question first, then give supporting details.",
+                "low":  "Practice answering mock questions and focus on directly addressing what's asked.",
+            },
+            "Confidence": {
+                "high": "Your vocal energy is strong. Maintain this pacing in high-pressure situations.",
+                "mid":  "Reduce filler words (um, uh) and add deliberate pauses instead of rushing.",
+                "low":  "Practise speaking aloud daily; record yourself and listen back to build awareness.",
+            },
+            "Emotion": {
+                "high": "Excellent composure — your calm demeanour projects trustworthiness.",
+                "mid":  "Try to maintain relaxed facial muscles; brief breathing exercises before interviews help.",
+                "low":  "Practise mock interviews on video to become comfortable with camera presence.",
+            },
+            "Communication": {
+                "high": "Clear articulation and good pacing — keep it up.",
+                "mid":  "Work on varying your tone; monotone delivery can reduce perceived clarity.",
+                "low":  "Focus on speaking slowly and clearly; brevity with precision beats length.",
+            },
+        }
+        bucket = "high" if score >= 75 else ("mid" if score >= 50 else "low")
+        return tips.get(category, {}).get(bucket, "Keep practising to improve this area.")
+
+    feedback_items: list[FeedbackItem] = []
+    score_map = {
+        "Relevance":     app.score_relevance,
+        "Confidence":    app.score_confidence,
+        "Emotion":       app.score_emotion,
+        "Communication": app.score_communication,
+    }
+    for category, raw_score in score_map.items():
+        score = round(raw_score or 0)
+        feedback_items.append(FeedbackItem(
+            category=category,
+            score=score,
+            label=_score_label(score),
+            tip=_score_tip(category, score),
+        ))
+
+    # Overall summary
+    overall = round(app.score_overall or 0)
+    candidate_name = app.candidate.name if app.candidate else "The candidate"
+    if app.disqualified:
+        summary = (
+            f"{candidate_name} was disqualified during the interview due to integrity violations. "
+            "Scores reflect the answers recorded before disqualification."
+        )
+    elif overall >= 72:
+        summary = (
+            f"{candidate_name} performed strongly with an overall score of {overall}/100, "
+            "exceeding the shortlisting threshold. Their answers demonstrated solid domain knowledge "
+            "and communication skills."
+        )
+    else:
+        summary = (
+            f"{candidate_name} completed the interview with an overall score of {overall}/100. "
+            "There is room for improvement — the detailed feedback below highlights specific areas to focus on."
+        )
+
+    return InterviewDetailOut(
+        application=_enrich_app(app),
+        answers=answers_out,
+        feedback=feedback_items,
+        summary=summary,
+    )

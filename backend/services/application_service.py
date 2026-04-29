@@ -106,47 +106,79 @@ def submit_interview(
     return _enrich_app(app)
 
 
-# ── Interview Detail (answers + AI feedback) ─────────────────────────────────
+# ── Feedback generation ───────────────────────────────────────────────────────
 
 def _score_label(score: float) -> str:
     if score >= 75: return "Excellent"
-    if score >= 55: return "Good"
+    if score >= 50: return "Good"
     return "Needs Improvement"
 
 
-def _generate_feedback(app: Application) -> tuple[List[FeedbackItem], str]:
+def _generate_feedback(app: Application):
     """
-    Generate per-dimension feedback tips and an overall summary paragraph
-    from the AI scores stored on the application.
-    No external API call — purely rule-based so it always works offline.
+    Rule-based feedback — no external API, always works offline.
+    Handles null scores gracefully by using 0 as fallback so feedback
+    is always generated even when AI pipeline partially failed.
     """
+    # Safely coerce null scores → 0 so we always have a number
+    def _safe(v):
+        try:
+            return float(v) if v is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
     scores = {
-        "Relevance":     app.score_relevance     or 0,
-        "Confidence":    app.score_confidence    or 0,
-        "Emotion":       app.score_emotion       or 0,
-        "Communication": app.score_communication or 0,
+        "Relevance":     _safe(app.score_relevance),
+        "Confidence":    _safe(app.score_confidence),
+        "Emotion":       _safe(app.score_emotion),
+        "Communication": _safe(app.score_communication),
     }
 
     tips = {
         "Relevance": {
-            "Excellent":         "Your answers were on-point and well-targeted to each question. Keep structuring answers with the STAR method (Situation, Task, Action, Result) for consistency.",
-            "Good":              "Most answers addressed the question, but a few drifted off-topic. Before answering, take a breath and mentally map your response to the question's core topic.",
-            "Needs Improvement": "Several answers did not directly address the questions asked. Practice identifying the keyword in each question and anchor your entire answer around it.",
+            "Excellent":
+                "Your answers were on-point and directly targeted each question. "
+                "Keep using the STAR method (Situation, Task, Action, Result) to stay structured.",
+            "Good":
+                "Most answers addressed the question, but a few drifted off-topic. "
+                "Before answering, identify the core keyword in the question and anchor your entire response to it.",
+            "Needs Improvement":
+                "Several answers did not directly address the questions asked. "
+                "Practice active listening — repeat the question silently, pick one key idea, and build your answer only around that idea.",
         },
         "Confidence": {
-            "Excellent":         "Your voice was clear, projected well, and showed minimal hesitation. Excellent delivery — maintain this energy in real interviews.",
-            "Good":              "Your delivery was generally confident with occasional pauses. Try the 'pause with purpose' technique: pause briefly before answering, then speak at a steady pace.",
-            "Needs Improvement": "The audio analysis detected frequent long pauses and lower vocal energy. Practice speaking aloud daily — record yourself answering common questions and review the playback.",
+            "Excellent":
+                "Your voice was clear, well-projected, and showed minimal hesitation. "
+                "Maintain this energy — steady pacing and projection signal confidence to any interviewer.",
+            "Good":
+                "Your delivery was mostly confident with occasional pauses. "
+                "Try the 'pause with purpose' technique: a deliberate 1–2 second pause before answering sounds composed, not hesitant.",
+            "Needs Improvement":
+                "The audio analysis detected frequent long pauses and lower vocal energy. "
+                "Record yourself answering mock interview questions daily, play it back, and consciously work on filling silences with speech rather than pauses.",
         },
         "Emotion": {
-            "Excellent":         "Your facial expressions were calm and composed throughout the interview. You projected engagement and confidence visually.",
-            "Good":              "Your expressions were mostly stable with occasional moments of visible tension. Deep breathing before each question can help maintain composure.",
-            "Needs Improvement": "The analysis detected noticeable facial tension (rapid blinking, raised brows). Mock interviews in front of a mirror and mindfulness practice can help regulate nervous responses.",
+            "Excellent":
+                "Your facial expressions were calm and composed throughout. "
+                "Consistent eye contact and a relaxed brow signal confidence and engagement to the interviewer.",
+            "Good":
+                "Your expressions were mostly stable with occasional moments of visible tension. "
+                "Try box breathing (4 counts in, hold 4, out 4) before each question to reset your baseline composure.",
+            "Needs Improvement":
+                "The analysis detected noticeable facial tension — frequent blinking and raised brows suggest anxiety. "
+                "Practice mock interviews in front of a mirror or on video. Watching yourself helps you identify and correct nervous habits consciously.",
         },
         "Communication": {
-            "Excellent":         "Your speech was clear, articulate, and well-paced. The transcription quality was high, indicating excellent enunciation.",
-            "Good":              "Communication was mostly clear. Focus on reducing filler words ('um', 'uh', 'like') — replacing them with a brief pause sounds more professional.",
-            "Needs Improvement": "Speech clarity was lower than ideal. Practise speaking more slowly and enunciating each word. Recording yourself and listening back is highly effective.",
+            "Excellent":
+                "Your speech was clear, well-paced, and articulate. "
+                "High transcription quality indicates excellent enunciation — a major strength in any interview.",
+            "Good":
+                "Communication was mostly clear. Focus on eliminating filler words like 'um', 'uh', and 'like'. "
+                "Replacing them with a brief pause sounds significantly more professional.",
+            "Needs Improvement":
+                "Speech clarity was lower than ideal, making transcription harder. "
+                "Slow down by 20%, open your mouth more when speaking, and enunciate each syllable. "
+                "Reading aloud for 10 minutes daily is a highly effective exercise.",
         },
     }
 
@@ -160,40 +192,54 @@ def _generate_feedback(app: Application) -> tuple[List[FeedbackItem], str]:
             tip=tips[category][label],
         ))
 
-    # ── Overall summary ───────────────────────────────────────────────────────
-    overall = app.score_overall or 0
+    # ── Summary paragraph ─────────────────────────────────────────────────────
+    overall = _safe(app.score_overall)
     name    = app.candidate.name.split()[0] if app.candidate else "Candidate"
 
     if app.disqualified:
         summary = (
-            f"{name}'s interview was terminated due to integrity violations. "
-            "No performance assessment is available. We encourage honest participation "
-            "in future interviews to receive a fair evaluation."
+            f"{name}'s interview was terminated due to integrity violations detected by the anti-cheat system. "
+            "No performance score has been assigned. We encourage fair and honest participation in future interviews."
         )
     elif overall >= 80:
         weakest = min(scores, key=scores.get)
         summary = (
-            f"{name} delivered an outstanding interview performance, scoring {int(overall)}/100 overall. "
+            f"{name} delivered an outstanding interview, scoring {int(overall)}/100 overall. "
             f"Answers were highly relevant, delivery was confident, and communication was clear. "
-            f"The main area to refine further is {weakest.lower()} — see the tip below."
+            f"The one area to refine further is {weakest.lower()} — the tip below gives specific guidance."
         )
     elif overall >= 65:
-        strengths = [k for k, v in scores.items() if v >= 65]
+        strengths  = [k for k, v in scores.items() if v >= 65]
         weaknesses = [k for k, v in scores.items() if v < 65]
-        summary = (
-            f"{name} performed well in this interview, scoring {int(overall)}/100. "
-            f"Strengths include {', '.join(strengths).lower() if strengths else 'several areas'}. "
-            f"{'Focus on improving ' + ', '.join(weaknesses).lower() + ' to reach the shortlisting threshold.' if weaknesses else 'A strong, balanced performance.'}"
+        s_str = ", ".join(strengths).lower() if strengths else "several areas"
+        w_str = (
+            "Focus on improving " + ", ".join(weaknesses).lower() + " to cross the shortlisting threshold of 72."
+            if weaknesses else "A strong, balanced performance overall."
         )
-    elif overall >= 50:
         summary = (
-            f"{name} completed the interview but the performance (score {int(overall)}/100) was below the shortlisting threshold of 72. "
-            "The feedback below highlights specific areas to work on. With targeted practice, the score can improve significantly."
+            f"{name} performed well, scoring {int(overall)}/100. "
+            f"Clear strengths in {s_str}. {w_str}"
+        )
+    elif overall >= 40:
+        summary = (
+            f"{name} completed the interview with a score of {int(overall)}/100, "
+            f"which is below the shortlisting threshold of 72. "
+            "The feedback cards below highlight specific areas for improvement. "
+            "With focused practice on the weakest dimensions, the score can improve significantly."
+        )
+    elif overall > 0:
+        summary = (
+            f"{name}'s interview score of {int(overall)}/100 indicates significant room for improvement. "
+            "Review each feedback item carefully and prioritise consistent mock interview practice. "
+            "Focusing on answer relevance and confident vocal delivery will produce the fastest gains."
         )
     else:
+        # Scores are all 0 — AI pipeline likely failed or camera/mic was unavailable
         summary = (
-            f"{name}'s interview score of {int(overall)}/100 suggests significant room for improvement. "
-            "Review each feedback item carefully. Consistent mock interview practice, focusing on answer relevance and confident delivery, will make a meaningful difference."
+            f"{name} completed the interview. The AI analysis pipeline encountered issues scoring this session "
+            "(camera or microphone may have been unavailable). "
+            "Answer content has been saved and can be reviewed below. "
+            "Please re-attempt the interview with camera and microphone enabled for a full AI score."
         )
 
     return items, summary
@@ -202,20 +248,12 @@ def _generate_feedback(app: Application) -> tuple[List[FeedbackItem], str]:
 def get_interview_detail(
     app_id: str, db: Session, current_user: User,
 ) -> InterviewDetailOut:
-    """
-    Return the full interview detail for a completed application.
-    Access rules:
-      - The candidate who owns the application can always see it.
-      - The HR who posted the job can see it.
-      - Admin can see anything.
-    """
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Authorisation check
     is_owner    = app.candidate_id == current_user.id
-    is_hr_owner = (current_user.role == "hr"    and app.job and app.job.hr_id == current_user.id)
+    is_hr_owner = current_user.role == "hr" and app.job and app.job.hr_id == current_user.id
     is_admin    = current_user.role == "admin"
 
     if not (is_owner or is_hr_owner or is_admin):
@@ -227,10 +265,10 @@ def get_interview_detail(
     answers = [
         AnswerOut(
             question_text=a.question_text,
-            answer_text=a.answer_text,
+            answer_text=a.answer_text or "",
             question_index=int(a.question_index or 0),
         )
-        for a in app.answers
+        for a in sorted(app.answers, key=lambda x: x.question_index or 0)
     ]
 
     feedback, summary = _generate_feedback(app)
