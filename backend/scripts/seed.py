@@ -17,6 +17,7 @@ Safe to run multiple times — existing rows are skipped.
 import sys
 import os
 import random
+from datetime import date, timedelta
 
 # ── Path fix ────────────────────────────────────────────────────────────────────
 # __file__ is .../backend/scripts/seed.py
@@ -32,9 +33,13 @@ from core.security import hash_password
 
 db = SessionLocal()
 rng = random.Random(42)   # fixed seed → reproducible data every run
+today = date.today()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def days(n):
+    return (today + timedelta(days=n)).isoformat()
 
 def upsert_user(name, email, password, role):
     existing = db.query(User).filter(User.email == email).first()
@@ -198,101 +203,101 @@ def seed_jobs(hrs):
              location="Remote",    job_type="Full-time",
              description="Own UI architecture across our core product. Deep React and TypeScript required.",
              skills=["React","TypeScript","CSS","Testing","Performance Optimization"],
-             last_date="2026-04-15", interview_date="2026-04-20", hr_id=kuntal.id),
+             last_date=days(30), interview_date="2026-04-20", hr_id=kuntal.id),
 
         dict(title="Backend Engineer",           department="Engineering",
              location="Remote",    job_type="Full-time",
              description="Build and scale our FastAPI services and data pipeline.",
              skills=["Python","FastAPI","PostgreSQL","Redis","Docker"],
-             last_date="2026-04-25", interview_date="2026-04-30", hr_id=kuntal.id),
+             last_date=days(30), interview_date="2026-04-30", hr_id=kuntal.id),
 
         dict(title="Full Stack Engineer",        department="Engineering",
              location="Bengaluru", job_type="Full-time",
              description="End-to-end ownership of candidate-facing features.",
              skills=["React","Node.js","PostgreSQL","TypeScript","REST APIs"],
-             last_date="2026-05-01", interview_date="2026-05-08", hr_id=meera.id),
+             last_date=days(30), interview_date="2026-05-08", hr_id=meera.id),
 
         dict(title="DevOps Engineer",            department="Infrastructure",
              location="Remote",    job_type="Full-time",
              description="Manage CI/CD, Kubernetes clusters, and observability stack.",
              skills=["Kubernetes","Docker","Terraform","GitHub Actions","Prometheus"],
-             last_date="2026-04-18", interview_date="2026-04-24", hr_id=vikram.id),
+             last_date=days(30), interview_date="2026-04-24", hr_id=vikram.id),
 
         dict(title="iOS Engineer",               department="Engineering",
              location="Hybrid",    job_type="Full-time",
              description="Build our native iOS candidate app from scratch.",
              skills=["Swift","SwiftUI","Combine","CoreData","Xcode"],
-             last_date="2026-05-05", interview_date="2026-05-12", hr_id=kuntal.id),
+             last_date=days(30), interview_date="2026-05-12", hr_id=kuntal.id),
 
         # ── AI / ML ───────────────────────────────────────────────────────────
         dict(title="ML Engineer",                department="AI & Research",
              location="Bengaluru", job_type="Full-time",
              description="Build and deploy production ML models for our interview analysis pipeline.",
              skills=["Python","PyTorch","NLP","Computer Vision","MLOps"],
-             last_date="2026-04-10", interview_date="2026-04-18", hr_id=kuntal.id),
+             last_date=days(30), interview_date="2026-04-18", hr_id=kuntal.id),
 
         dict(title="NLP Research Engineer",      department="AI & Research",
              location="Remote",    job_type="Full-time",
              description="Research and ship NLP models for answer relevance scoring.",
              skills=["NLP","Python","HuggingFace","PyTorch","Research"],
-             last_date="2026-04-20", interview_date="2026-04-26", hr_id=rohan.id),
+             last_date=days(30), interview_date="2026-04-26", hr_id=rohan.id),
 
         dict(title="Computer Vision Engineer",   department="AI & Research",
              location="Bengaluru", job_type="Full-time",
              description="Build real-time facial emotion detection for live interviews.",
              skills=["Computer Vision","Python","OpenCV","DeepFace","PyTorch"],
-             last_date="2026-04-22", interview_date="2026-04-28", hr_id=rohan.id),
+             last_date=days(30), interview_date="2026-04-28", hr_id=rohan.id),
 
         # ── Product ───────────────────────────────────────────────────────────
         dict(title="Product Manager",            department="Product",
              location="Hybrid",    job_type="Full-time",
              description="Lead roadmap for our hiring platform across web and mobile.",
              skills=["Product Strategy","User Research","Agile","Data Analysis","Stakeholder Management"],
-             last_date="2026-04-20", interview_date="2026-04-25", hr_id=divya.id),
+             last_date=days(30), interview_date="2026-04-25", hr_id=divya.id),
 
         dict(title="Senior Product Designer",    department="Design",
              location="Remote",    job_type="Full-time",
              description="Own end-to-end UX for candidate and recruiter experiences.",
              skills=["Figma","User Research","Prototyping","Design Systems","Accessibility"],
-             last_date="2026-04-28", interview_date="2026-05-03", hr_id=divya.id),
+             last_date=days(30), interview_date="2026-05-03", hr_id=divya.id),
 
         dict(title="Product Analyst",            department="Product",
              location="Bengaluru", job_type="Full-time",
              description="Instrument, measure, and improve key product funnels.",
              skills=["SQL","Product Analytics","Amplitude","Python","A/B Testing"],
-             last_date="2026-05-02", interview_date="2026-05-09", hr_id=rajan.id),
+             last_date=days(30), interview_date="2026-05-09", hr_id=rajan.id),
 
         # ── Business / GTM ────────────────────────────────────────────────────
         dict(title="Sales Development Rep",      department="Sales",
              location="Mumbai",    job_type="Full-time",
              description="Outbound prospecting and pipeline generation for mid-market accounts.",
              skills=["Sales","CRM","Cold Outreach","Communication","Salesforce"],
-             last_date="2026-04-30", interview_date="2026-05-06", hr_id=rajan.id),
+             last_date=days(30), interview_date="2026-05-06", hr_id=rajan.id),
 
         dict(title="Customer Success Manager",   department="Customer Success",
              location="Hybrid",    job_type="Full-time",
              description="Onboard enterprise clients and drive adoption and retention.",
              skills=["Customer Success","SaaS","Onboarding","Data Analysis","Communication"],
-             last_date="2026-05-10", interview_date="2026-05-16", hr_id=meera.id),
+             last_date=days(30), interview_date="2026-05-16", hr_id=meera.id),
 
         dict(title="Marketing Manager",          department="Marketing",
              location="Remote",    job_type="Full-time",
              description="Own demand generation, content, and brand for SmartHire.",
              skills=["Content Marketing","SEO","Analytics","HubSpot","Copywriting"],
-             last_date="2026-05-08", interview_date="2026-05-14", hr_id=divya.id),
+             last_date=days(30), interview_date="2026-05-14", hr_id=divya.id),
 
         # ── Intern / Contract ─────────────────────────────────────────────────
         dict(title="Frontend Intern",            department="Engineering",
              location="Bengaluru", job_type="Internship",
              description="6-month internship working on UI features alongside senior engineers.",
              skills=["React","JavaScript","CSS","HTML","Git"],
-             last_date="2026-04-12", interview_date="2026-04-16", hr_id=vikram.id),
+             last_date=days(30), interview_date="2026-04-16", hr_id=vikram.id),
 
         dict(title="Data Analyst Intern",        department="Product",
              location="Remote",    job_type="Internship",
              description="Analyse product usage data and build dashboards for the team.",
              skills=["SQL","Python","Data Visualisation","Excel","Statistics"],
-             last_date="2026-04-14", interview_date="2026-04-19", hr_id=rajan.id),
+             last_date=days(30), interview_date="2026-04-19", hr_id=rajan.id),
     ]
 
     jobs = [upsert_job(d) for d in jobs_data]

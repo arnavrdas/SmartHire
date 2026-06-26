@@ -6,6 +6,7 @@ Using a class means the rest of the app imports settings
 from one place instead of calling os.environ everywhere.
 """
 
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
     class Config:
         # If a .env file exists in the project root, load variables from it.
         # This means you can override any value without editing this file.
-        env_file = ".env"
+        env_file = Path(__file__).resolve().parent.parent / ".env"
 
 
 settings = Settings()
