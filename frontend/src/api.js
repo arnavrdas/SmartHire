@@ -4,7 +4,7 @@
  * Every HTTP call to the backend lives here.
  */
 
-const BASE = "http://localhost:8000";
+const BASE = import.meta.env.VITE_API_URL;
 
 function getToken() { return localStorage.getItem("smarthire_token"); }
 export function saveToken(t) { localStorage.setItem("smarthire_token", t); }
